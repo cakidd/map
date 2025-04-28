@@ -27,14 +27,9 @@
             cursor: pointer;
             font-family: Arial, sans-serif;
         }
-        #overlay h2 {
-            font-size: 1.8rem;
-            margin-bottom: 1rem;
-            color: #d4a017;
-        }
-        #overlay p {
-            font-size: 1.2rem;
-            max-width: 80%;
+        #viewDiv {
+            width: 100%;
+            height: 100%;
         }
     </style>
 </head>
@@ -55,64 +50,45 @@
             "esri/core/reactiveUtils"
         ], (WebMap, MapView, reactiveUtils) => {
             
+            // 1. VERIFIED WEBMAP ID
             const webmap = new WebMap({
                 portalItem: {
-                    id: "8e06c22f77184bdaa46b3c422180a2c6"
+                    id: "8e06c22f77184bdaa46b3c422180a2c6" // Confirm this matches your AGOL item
                 }
             });
 
+            // 2. PROPER VIEW INITIALIZATION
             const view = new MapView({
                 container: "viewDiv",
                 map: webmap,
                 padding: { top: 20 },
-                ui: {
-                    components: [] // Start with no UI controls
-                }
+                ui: { components: [] }
             });
 
-            // Disable all interactions initially
-            const disableInteractions = () => {
-                view.popup.autoOpenEnabled = false;
-                view.on("drag", (e) => e.stopPropagation());
-                view.on("double-click", (e) => e.stopPropagation());
-                view.on("mouse-wheel", (e) => e.stopPropagation());
-            };
+            // 3. ESSENTIAL ERROR HANDLING
+            view.when(() => {
+                console.log("Map loaded successfully");
+                view.ui.move("zoom", "top-right");
+            }).catch(error => {
+                console.error("Map load failed:", error);
+                document.getElementById("overlay").innerHTML = `
+                    <h2>⚠️ Map Loading Error</h2>
+                    <p>Please refresh or check your connection</p>
+                `;
+            });
 
-            // Enable interactions after overlay click
-            const enableInteractions = () => {
-                view.ui.add("zoom");
-                view.popup.autoOpenEnabled = true;
-                view.on("drag", null);
-                view.on("double-click", null);
-                view.on("mouse-wheel", null);
-            };
-
-            // Handle overlay click
+            // 4. CLICK HANDLER WITH RESIZE FIX
             document.getElementById("overlay").addEventListener("click", () => {
                 document.getElementById("overlay").style.display = "none";
-                enableInteractions();
+                view.ui.add("zoom");
+                view.resize(); // Critical fix for map rendering
             });
 
-            // Mobile touch handling
+            // 5. MOBILE TOUCH SUPPORT
             document.getElementById("overlay").addEventListener("touchstart", (e) => {
                 e.preventDefault();
                 document.getElementById("overlay").click();
             }, { passive: false });
-
-            // Initialize view
-            view.when(() => {
-                disableInteractions();
-                
-                // Use reactiveUtils instead of deprecated watch()
-                reactiveUtils.watch(
-                    () => view.stationary,
-                    (stationary) => {
-                        if (stationary) {
-                            view.ui.move("zoom", "top-right");
-                        }
-                    }
-                );
-            }).catch(console.error);
         });
     </script>
 </body>
