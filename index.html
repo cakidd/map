@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Community Resources Map</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WV Commons Interactive Map</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css">
-    <script src="https://js.arcgis.com/4.28/"></script>
     <style>
         #mapContainer {
             position: relative;
-            height: 600px;
+            height: 100vh;
+            width: 100%;
         }
         #overlay {
             position: absolute;
@@ -16,63 +16,103 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(255,255,255,0.9);
-            cursor: pointer;
-            z-index: 100;
+            background: rgba(26, 95, 62, 0.95);
+            color: white;
             display: flex;
-            align-items: center;
+            flex-direction: column;
             justify-content: center;
-            font-family: Arial;
+            align-items: center;
             text-align: center;
-            padding: 20px;
+            z-index: 100;
+            cursor: pointer;
+            font-family: Arial, sans-serif;
         }
         #overlay h2 {
-            color: #1a5f3e;
-            font-size: 1.5rem;
+            font-size: 1.8rem;
+            margin-bottom: 1rem;
+            color: #d4a017;
+        }
+        #overlay p {
+            font-size: 1.2rem;
+            max-width: 80%;
         }
     </style>
 </head>
 <body>
     <div id="mapContainer">
         <div id="overlay">
-            <div>
-                <h2>Community Resources Map</h2>
-                <p>Tap anywhere to interact</p>
-            </div>
+            <h2>WV Community Resources</h2>
+            <p>Tap anywhere to explore interactive map</p>
         </div>
         <div id="viewDiv"></div>
     </div>
 
+    <script src="https://js.arcgis.com/4.28/"></script>
     <script>
-        require(["esri/WebMap", "esri/views/MapView"], (WebMap, MapView) => {
+        require([
+            "esri/WebMap",
+            "esri/views/MapView",
+            "esri/core/reactiveUtils"
+        ], (WebMap, MapView, reactiveUtils) => {
+            
             const webmap = new WebMap({
-                portalItem: { id: "8e06c22f77184bdaa46b3c422180a2c6" }
+                portalItem: {
+                    id: "8e06c22f77184bdaa46b3c422180a2c6"
+                }
             });
 
             const view = new MapView({
                 container: "viewDiv",
                 map: webmap,
-                padding: { top: 50 },
-                ui: { components: [] } // Remove all UI controls
+                padding: { top: 20 },
+                ui: {
+                    components: [] // Start with no UI controls
+                }
             });
 
-            // Disable interactions initially
-            view.popup.autoOpenEnabled = false;
-            view.on("click", (e) => e.stopPropagation());
-            view.on("double-click", (e) => e.stopPropagation());
-            view.on("drag", (e) => e.stopPropagation());
+            // Disable all interactions initially
+            const disableInteractions = () => {
+                view.popup.autoOpenEnabled = false;
+                view.on("drag", (e) => e.stopPropagation());
+                view.on("double-click", (e) => e.stopPropagation());
+                view.on("mouse-wheel", (e) => e.stopPropagation());
+            };
 
-            // Click overlay to enable interaction
+            // Enable interactions after overlay click
+            const enableInteractions = () => {
+                view.ui.add("zoom");
+                view.popup.autoOpenEnabled = true;
+                view.on("drag", null);
+                view.on("double-click", null);
+                view.on("mouse-wheel", null);
+            };
+
+            // Handle overlay click
             document.getElementById("overlay").addEventListener("click", () => {
                 document.getElementById("overlay").style.display = "none";
-                view.ui.add("zoom"); // Restore zoom controls
-                view.popup.autoOpenEnabled = true;
-                
-                // Re-enable map interactions
-                view.on("click", (e) => e.stopPropagation());
-                view.on("double-click", (e) => e.stopPropagation());
-                view.on("drag", (e) => e.stopPropagation());
+                enableInteractions();
             });
+
+            // Mobile touch handling
+            document.getElementById("overlay").addEventListener("touchstart", (e) => {
+                e.preventDefault();
+                document.getElementById("overlay").click();
+            }, { passive: false });
+
+            // Initialize view
+            view.when(() => {
+                disableInteractions();
+                
+                // Use reactiveUtils instead of deprecated watch()
+                reactiveUtils.watch(
+                    () => view.stationary,
+                    (stationary) => {
+                        if (stationary) {
+                            view.ui.move("zoom", "top-right");
+                        }
+                    }
+                );
+            }).catch(console.error);
         });
     </script>
 </body>
