@@ -50,14 +50,14 @@
             "esri/core/reactiveUtils"
         ], (WebMap, MapView, reactiveUtils) => {
             
-            // 1. VERIFIED WEBMAP ID
+            // 1. VERIFIED WEBMAP ID (Double-check this matches your ArcGIS Online item)
             const webmap = new WebMap({
                 portalItem: {
-                    id: "8e06c22f77184bdaa46b3c422180a2c6" // Confirm this matches your AGOL item
+                    id: "8e06c22f77184bdaa46b3c422180a2c6"
                 }
             });
 
-            // 2. PROPER VIEW INITIALIZATION
+            // 2. MAP VIEW INITIALIZATION WITH ERROR HANDLING
             const view = new MapView({
                 container: "viewDiv",
                 map: webmap,
@@ -73,15 +73,23 @@
                 console.error("Map load failed:", error);
                 document.getElementById("overlay").innerHTML = `
                     <h2>⚠️ Map Loading Error</h2>
-                    <p>Please refresh or check your connection</p>
+                    <p>Please check:<br>
+                    1. Internet connection<br>
+                    2. WebMap ID validity<br>
+                    3. Sharing permissions</p>
                 `;
             });
 
             // 4. CLICK HANDLER WITH RESIZE FIX
             document.getElementById("overlay").addEventListener("click", () => {
-                document.getElementById("overlay").style.display = "none";
-                view.ui.add("zoom");
-                view.resize(); // Critical fix for map rendering
+                const overlay = document.getElementById("overlay");
+                overlay.style.display = "none";
+                
+                // Critical map resize fix
+                setTimeout(() => {
+                    view.resize();
+                    view.ui.add("zoom");
+                }, 100);
             });
 
             // 5. MOBILE TOUCH SUPPORT
@@ -89,6 +97,12 @@
                 e.preventDefault();
                 document.getElementById("overlay").click();
             }, { passive: false });
+        }).catch(error => {
+            console.error("ArcGIS API failed to load:", error);
+            document.getElementById("overlay").innerHTML = `
+                <h2>⚠️ Critical Error</h2>
+                <p>Failed to load mapping library</p>
+            `;
         });
     </script>
 </body>
