@@ -30,6 +30,7 @@
         #viewDiv {
             width: 100%;
             height: 100%;
+            touch-action: none; /* Prevent default touch behaviors */
         }
     </style>
 </head>
@@ -50,25 +51,89 @@
             "esri/core/reactiveUtils"
         ], (WebMap, MapView, reactiveUtils) => {
             
-            // 1. VERIFIED WEBMAP ID (Double-check this matches your ArcGIS Online item)
             const webmap = new WebMap({
                 portalItem: {
                     id: "8e06c22f77184bdaa46b3c422180a2c6"
                 }
             });
 
-            // 2. MAP VIEW INITIALIZATION WITH ERROR HANDLING
             const view = new MapView({
                 container: "viewDiv",
                 map: webmap,
                 padding: { top: 20 },
-                ui: { components: [] }
+                constraints: {
+                    snapToZoom: false
+                },
+                ui: {
+                    components: []
+                }
             });
 
-            // 3. ESSENTIAL ERROR HANDLING
+            // Touch control variables
+            let touchCount = 0;
+            let lastTouchTime = 0;
+
+            // Disable all interactions initially
+            const disableInteractions = () => {
+                view.popup.autoOpenEnabled = false;
+                
+                // Block default gestures
+                view.on("drag", (e) => e.stopPropagation());
+                view.on("double-click", (e) => e.stopPropagation());
+                view.on("mouse-wheel", (e) => e.stopPropagation());
+            };
+
+            // Enable controlled interactions
+            const enableInteractions = () => {
+                view.ui.add("zoom");
+                view.popup.autoOpenEnabled = true;
+                
+                // Touch event handling
+                view.on("pointer-down", (e) => {
+                    if(e.pointerType === "touch") {
+                        touchCount = e.touches.length;
+                        lastTouchTime = Date.now();
+                    }
+                });
+
+                // Allow zoom only with two fingers
+                view.on("pointer-move", (e) => {
+                    if(e.pointerType === "touch" && touchCount < 2) {
+                        e.stopPropagation();
+                    }
+                });
+
+                // Reset touch tracking
+                view.on("pointer-up", () => {
+                    touchCount = 0;
+                });
+            };
+
+            // Overlay click handler
+            document.getElementById("overlay").addEventListener("click", () => {
+                const overlay = document.getElementById("overlay");
+                overlay.style.display = "none";
+                
+                // Activate map after short delay
+                setTimeout(() => {
+                    view.resize();
+                    enableInteractions();
+                }, 100);
+            });
+
+            // Mobile touch activation
+            document.getElementById("overlay").addEventListener("touchstart", (e) => {
+                e.preventDefault();
+                document.getElementById("overlay").click();
+            }, { passive: false });
+
+            // Initialize view
             view.when(() => {
-                console.log("Map loaded successfully");
-                view.ui.move("zoom", "top-right");
+                disableInteractions();
+                reactiveUtils.watch(
+                    () => view.stationary,
+                    (stationary) => stationary && view.ui.move("zoom", "top-right")
+                );
             }).catch(error => {
                 console.error("Map load failed:", error);
                 document.getElementById("overlay").innerHTML = `
@@ -79,30 +144,6 @@
                     3. Sharing permissions</p>
                 `;
             });
-
-            // 4. CLICK HANDLER WITH RESIZE FIX
-            document.getElementById("overlay").addEventListener("click", () => {
-                const overlay = document.getElementById("overlay");
-                overlay.style.display = "none";
-                
-                // Critical map resize fix
-                setTimeout(() => {
-                    view.resize();
-                    view.ui.add("zoom");
-                }, 100);
-            });
-
-            // 5. MOBILE TOUCH SUPPORT
-            document.getElementById("overlay").addEventListener("touchstart", (e) => {
-                e.preventDefault();
-                document.getElementById("overlay").click();
-            }, { passive: false });
-        }).catch(error => {
-            console.error("ArcGIS API failed to load:", error);
-            document.getElementById("overlay").innerHTML = `
-                <h2>⚠️ Critical Error</h2>
-                <p>Failed to load mapping library</p>
-            `;
         });
     </script>
 </body>
